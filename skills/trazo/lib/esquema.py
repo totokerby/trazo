@@ -1,12 +1,15 @@
 """Schema aliases: the public schema is English; Spanish keys are accepted too. Both normalize to the
 internal names used by the rest of the package."""
 
-DOC = {"repository": "repositorio", "footer": "pie", "title": "titulo", "sections": "secciones"}
+DOC = {"repository": "repositorio", "footer": "pie", "title": "titulo", "sections": "secciones",
+       "text_scale": "escala_texto", "print": "impresion"}
 SECTION = {"title": "titulo", "lead": "bajada", "views": "vistas", "cards": "tarjetas"}
 VIEW = {"label": "rotulo", "diagram": "diagrama"}
 CARD = {"title": "titulo", "accent": "acento"}
 DIAGRAM = {"type": "tipo", "title": "titulo", "description": "descripcion", "size": "tamano",
-           "zones": "zonas", "nodes": "nodos", "edges": "aristas"}
+           "zones": "zonas", "nodes": "nodos", "edges": "aristas", "text_scale": "escala_texto",
+           "print": "impresion"}
+PRINT = {"width_pt": "ancho_pt"}
 ZONE = {"label": "rotulo", "label_x": "rotulo_x"}
 NODE = {"kind": "clase", "tag": "etiqueta", "name": "nombre", "detail": "detalle", "sources": "fuentes"}
 EDGE = {"from": "de", "to": "a", "from_side": "lado_de", "to_side": "lado_a", "label": "texto",
@@ -37,6 +40,8 @@ def _fuentes(obj):
 
 def normalize(doc):
     doc = _keys(doc, DOC)
+    if isinstance(doc.get("impresion"), dict):
+        _keys(doc["impresion"], PRINT)
     if "lang" not in doc:
         doc["lang"] = "en"
     for s in doc.get("secciones", []):
@@ -45,7 +50,11 @@ def normalize(doc):
             _keys(c, CARD)
         for v in s.get("vistas", []):
             _keys(v, VIEW)
+            if not isinstance(v.get("diagrama"), dict):
+                continue
             d = _keys(v["diagrama"], DIAGRAM)
+            if isinstance(d.get("impresion"), dict):
+                _keys(d["impresion"], PRINT)
             d["tipo"] = TYPES.get(d.get("tipo"), d.get("tipo"))
             for z in d.get("zonas", []):
                 _keys(z, ZONE)

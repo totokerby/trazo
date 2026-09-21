@@ -61,17 +61,17 @@ def largo(t):
     return abs(t[1][0] - t[0][0]) + abs(t[1][1] - t[0][1])
 
 
-def caja_rotulo(pts, texto, pos=None, t=0.5, tramo=None):
-    """Label mask: 6-10px above (or beside) its segment, never on top of it."""
+def caja_rotulo(pts, texto, pos=None, t=0.5, tramo=None, s=1.0):
+    """Label mask: 6-10px above (or beside) its segment, never on top of it. `s` is the text scale."""
     ts = tramos(pts)
     if tramo is None:
         tramo = max(range(len(ts)), key=lambda i: largo(ts[i]))
     (ax, ay), (bx, by) = ts[tramo]
     mx, my = ax + (bx - ax) * t, ay + (by - ay) * t
-    w = round(len(texto) * ANCHO_CHAR + 10)
+    w, h, gap = round((len(texto) * ANCHO_CHAR + 10) * s), round(12 * s, 1), 7 * s
     if ay == by:
-        return (mx - w / 2, my + 7, w, 12) if pos == "abajo" else (mx - w / 2, my - 19, w, 12)
-    return (mx - 7 - w, my - 6, w, 12) if pos == "izq" else (mx + 7, my - 6, w, 12)
+        return (mx - w / 2, my + gap, w, h) if pos == "abajo" else (mx - w / 2, my - gap - h, w, h)
+    return (mx - gap - w, my - h / 2, w, h) if pos == "izq" else (mx + gap, my - h / 2, w, h)
 
 
 def solapan(a, b):
@@ -129,6 +129,6 @@ def resolver(diag):
         pts = ruta(anclas[(i, "de")], e["lado_de"], anclas[(i, "a")], e["lado_a"], e.get("medio"))
         rutas.append(pts)
         if e.get("texto"):
-            caja = caja_rotulo(pts, e["texto"], e.get("pos"), e.get("t", 0.5), e.get("tramo"))
+            caja = caja_rotulo(pts, e["texto"], e.get("pos"), e.get("t", 0.5), e.get("tramo"), diag.get("_escala", 1.0))
             rotulos.append((i, caja, e["texto"]))
     return rutas, rotulos

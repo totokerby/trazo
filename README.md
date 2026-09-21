@@ -48,6 +48,7 @@ python3 trazo/skills/trazo/trazo.py test
 python3 skills/trazo/trazo.py validate examples/pipeline.trazo.json
 python3 skills/trazo/trazo.py build    examples/pipeline.trazo.json out.html
 python3 skills/trazo/trazo.py export   examples/pipeline.trazo.json pipeline pipeline.svg   # standalone SVG
+python3 skills/trazo/trazo.py export   examples/pipeline.trazo.json pipeline pipeline.pdf   # vector PDF (Chrome)
 python3 skills/trazo/trazo.py capture  out.html shots/        # PNGs, light and dark (needs Chrome/Chromium)
 python3 skills/trazo/trazo.py test                            # sources self-test
 ```

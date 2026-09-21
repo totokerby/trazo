@@ -4,7 +4,8 @@
   trazo.py validate <doc.trazo.json> [--json]
   trazo.py build    <doc.trazo.json> <out.html> [--json]
   trazo.py capture  <out.html> <dir> [--theme light|dark|both]
-  trazo.py export   <doc.trazo.json> <diagram-id> <out.svg> [--theme light|dark]
+  trazo.py export   <doc.trazo.json> <diagram-id> <out.svg> [--theme light|dark] [--background white|#hex]
+            (an out file ending in .pdf, or --format pdf, writes a vector PDF sized to the diagram; needs Chrome)
   trazo.py test
 
 Spanish aliases: validar, construir, captura, exportar, prueba.
@@ -84,14 +85,43 @@ def cmd_export(args):
         print("not exported: validation has errors")
         return 1
     theme = args[args.index("--theme") + 1] if "--theme" in args else "light"
+    bg = args[args.index("--background") + 1] if "--background" in args else None
+    if bg == "white":
+        bg = "#ffffff"
+    if bg and not (bg.startswith("#") and len(bg) in (4, 7)):
+        print("--background takes 'white' or a hex color like #ffffff")
+        return 2
     diags = {v["diagrama"]["id"]: v["diagrama"] for s in doc["secciones"] for v in s["vistas"]}
     if args[1] not in diags:
         print(f"no diagram '{args[1]}'; available: {', '.join(diags)}")
         return 1
     out = Path(args[2])
+    pdf = out.suffix.lower() == ".pdf" or ("--format" in args and args[args.index("--format") + 1] == "pdf")
+    if pdf and not bg:
+        bg = "#ffffff"
+    svg_txt = exportar_svg(diags[args[1]], theme, bg)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(exportar_svg(diags[args[1]], theme), encoding="utf-8")
-    print(f"OK {out}  ({args[1]}, {theme}, {out.stat().st_size} bytes)")
+    if not pdf:
+        out.write_text(svg_txt, encoding="utf-8")
+        print(f"OK {out}  ({args[1]}, {theme}, {out.stat().st_size} bytes)")
+        return 0
+    nav = browser()
+    if not nav:
+        print("no Chrome or Chromium found: PDF export needs a machine with a browser (SVG export does not)")
+        return 2
+    w, h = diags[args[1]]["tamano"]
+    with tempfile.TemporaryDirectory() as d:
+        page = Path(d) / "page.html"
+        page.write_text(f"<!doctype html><html><head><style>@page{{size:{w}px {h}px;margin:0}}"
+                        f"html,body{{margin:0;background:{bg}}}svg{{display:block;width:{w}px;height:{h}px}}</style>"
+                        f"</head><body>{svg_txt}</body></html>", encoding="utf-8")
+        subprocess.run([nav, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-pdf-header-footer",
+                        f"--print-to-pdf={out.resolve()}", f"file://{page}"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=90)
+    if not out.exists():
+        print("the browser did not write the PDF")
+        return 1
+    print(f"OK {out}  ({args[1]}, {theme}, PDF {w}x{h}px, {out.stat().st_size} bytes)")
     return 0
 
 
@@ -148,9 +178,15 @@ def cmd_test(_):
         ok2 = any(x["code"] == "source-stale" for x in check().errores)
         (d / "code.py").unlink()
         ok3 = any(x["code"] == "source-missing" for x in check().errores)
-    for name, ok in (("current source validates", ok1), ("changed line fails", ok2), ("deleted file fails", ok3)):
+        (d / "code.py").write_text("def f():\n    return send_to_queue(msg)\n")
+        spec["print"] = {"width_pt": 433, "min_pt": 6}
+        ok4 = any(x["code"] == "print-size" for x in check().errores)
+        spec["text_scale"] = 1.4
+        ok5 = not any(x["code"] == "print-size" for x in check().errores)
+    for name, ok in (("current source validates", ok1), ("changed line fails", ok2), ("deleted file fails", ok3),
+                     ("print size below the minimum fails", ok4), ("text_scale fixes it", ok5)):
         print(("OK    " if ok else "FAIL  ") + name)
-    return 0 if ok1 and ok2 and ok3 else 1
+    return 0 if ok1 and ok2 and ok3 and ok4 and ok5 else 1
 
 
 COMMANDS = {"validate": cmd_validate, "build": cmd_build, "capture": cmd_capture, "export": cmd_export,

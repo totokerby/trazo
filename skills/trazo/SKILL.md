@@ -11,7 +11,7 @@ A diagram is data: a JSON spec that is validated and built. Never hand-write the
 ```bash
 python3 <skill-dir>/trazo.py validate <doc.trazo.json>          # errors with a suggested fix
 python3 <skill-dir>/trazo.py build    <doc.trazo.json> <out.html> # only if it validates; prints a sha256 receipt
-python3 <skill-dir>/trazo.py export   <doc.trazo.json> <id> <out.svg> [--theme dark]  # standalone SVG, fonts embedded
+python3 <skill-dir>/trazo.py export   <doc.trazo.json> <id> <out.svg|out.pdf> [--theme dark] [--background white]  # standalone SVG or vector PDF, fonts embedded
 python3 <skill-dir>/trazo.py capture  <out.html> <dir>            # one PNG per diagram, light and dark
 python3 <skill-dir>/trazo.py test                                 # sources self-test
 ```
@@ -81,6 +81,21 @@ a panel with the tag, detail, who it sends to and receives from (clickable) and 
 edge: its label and detail. Global search, auto/light/dark theme, drag-to-pan zoom and per-diagram SVG
 export. Without JavaScript the diagram still renders completely. `#solo=<id>&theme=dark` isolates one
 diagram (used by `capture`).
+
+## Printing
+Text is sized in canvas units, so its printed size is `units x printed width (pt) / canvas width`. A 1000-unit
+canvas at 433 pt (an A4 page at 12 pt) prints a 9-unit subtitle at 3.9 pt.
+- **`print`** (document or diagram): `{"width_pt": 433, "min_pt": 6}`. The validator computes the smallest
+  text's printed size (the 7-unit tag times `text_scale`) and fails with `print-size` if it is below `min_pt`
+  (default 6), suggesting the `text_scale` or the maximum canvas width that fixes it. Any diagram headed for a
+  PDF carries `print`.
+- **`text_scale`** (document or diagram, 0.5 to 3): scales letters, label boxes and the validator's width
+  estimates without redesigning the layout. With 1 the output is identical to before. A 640-unit canvas at
+  433 pt with `text_scale` 1.3 prints name 10.6 pt, subtitle 7.9, label 7.0, tag 6.2.
+- **`export <doc> <id> figure.pdf`** (or `--format pdf`): vector PDF, fonts embedded, page sized to the canvas,
+  white background by default. Needs Chrome or Chromium; without one it says so and exits 2. SVG export takes
+  `--background white|#hex`.
+- A crisp 150 dpi crop proves nothing about size. The check is `print`.
 
 ## Output
 One self-contained HTML file that works offline: CSS, JS, SVG and the typeface are inline. The typeface is

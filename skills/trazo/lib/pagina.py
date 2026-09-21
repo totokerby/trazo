@@ -45,11 +45,13 @@ def tokens(css, tema):
     return ";".join(d.strip() for d in bloque.split(";") if d.strip().startswith("--"))
 
 
-def exportar_svg(diag, tema="light"):
-    """Standalone SVG: same markup as the page, with theme tokens resolved and fonts embedded."""
+def exportar_svg(diag, tema="light", fondo=None):
+    """Standalone SVG: same markup as the page, with theme tokens resolved and fonts embedded.
+    `fondo` overrides the paper color; label masks use the same token, so they stay invisible."""
     css = (AQUI / "visor.css").read_text(encoding="utf-8")
     css_svg = css[css.index("/* SVG"):css.index("/* interaction")]
-    estilo = f"<style>svg{{{tokens(css, tema)}}}{fuentes()}{css_svg}</style>"
+    papel = f";--paper:{fondo}" if fondo else ""
+    estilo = f"<style>svg{{{tokens(css, tema)}{papel}}}{fuentes()}{css_svg}</style>"
     marcado = svg(diag, diag["id"])
     return marcado.replace("<defs>", estilo + "<defs>", 1)
 

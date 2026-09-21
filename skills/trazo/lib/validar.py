@@ -1,6 +1,6 @@
 """Trazo validator. An error blocks the build; a warning does not."""
 from geometria import LADOS, resolver, solapan, tramo_toca, cruzan, tramos
-from svg import items_leyenda
+from svg import items_leyenda, alto_leyenda, lineas_nodo, escala, T_ETQ
 
 CLASES = ("foco", "proceso", "estado", "externo", "persona", "pendiente", "gate")
 ESTILOS = ("flujo", "principal", "externo", "pendiente", "principal-pendiente")
@@ -78,6 +78,24 @@ def validar_diagrama(diag, raiz, inf):
     if not diag.get("tamano"):
         return
     W, H = diag["tamano"]
+    esc = escala(diag)
+    if not 0.5 <= esc <= 3:
+        inf.error(did, "text-scale", f"text_scale {esc} is out of range", "use a value between 0.5 and 3")
+        return
+    imp = diag.get("_imp")
+    if imp is not None:
+        imp = imp if isinstance(imp, dict) else {}
+        ancho, minimo = imp.get("ancho_pt"), imp.get("min_pt", 6)
+        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 for x in (ancho, minimo)):
+            inf.error(did, "print-profile", "'print' needs positive numbers: {\"width_pt\": N, \"min_pt\": N}",
+                      "width_pt is the printed width of the diagram in points; min_pt defaults to 6")
+            return
+        real = T_ETQ * esc * ancho / W
+        if real < minimo:
+            inf.error(did, "print-size", f"the smallest text prints at {real:.1f} pt; the minimum is {minimo:g} pt "
+                      f"(canvas {W} units at {ancho:g} pt wide)",
+                      f"set 'text_scale' to {minimo * W / (T_ETQ * ancho):.2f} or more (then re-check the layout), "
+                      f"or make the canvas {ancho * T_ETQ * esc / minimo:.0f} units wide or less")
     nodos = diag["nodos"]
     ids = [n.get("id") for n in nodos]
     if len(set(ids)) != len(ids):
@@ -104,12 +122,15 @@ def validar_diagrama(diag, raiz, inf):
         for k, pub in (("x", "x"), ("y", "y"), ("w", "w"), ("h", "h")):
             if n.get(k, 0) % 4:
                 inf.aviso(donde, "grid", f"{pub}={n.get(k)} is off the 4px grid", "use a multiple of 4")
-        if n["x"] < 0 or n["y"] < 0 or n["x"] + n["w"] > W or n["y"] + n["h"] > H - 60:
+        if n["x"] < 0 or n["y"] < 0 or n["x"] + n["w"] > W or n["y"] + n["h"] > H - alto_leyenda(diag):
             inf.error(donde, "off-canvas", "the node leaves the canvas or covers the legend strip",
-                      "move it or enlarge 'size' (the legend takes the last 60px)")
-        largo_sub = max([len(s) for s in n["sub"]] + [0]) * 5.6
-        if largo_sub > n["w"] - 12 or len(n["nombre"]) * 7.2 > n["w"] - 12:
+                      f"move it or enlarge 'size' (the legend takes the last {alto_leyenda(diag):.0f} units)")
+        largo_sub = max([len(x) for x in n["sub"]] + [0]) * 5.6 * esc
+        if largo_sub > n["w"] - 12 or len(n["nombre"]) * 7.2 * esc > n["w"] - 12:
             inf.aviso(donde, "text-width", "text runs close to the node border", "shorten it or widen the node")
+        if lineas_nodo(n, esc)[2] > n["y"] + n["h"] - 4:
+            inf.error(donde, "text-height", "the text runs past the bottom of the node",
+                      "make the node taller ('h'), drop a sub line, or lower 'text_scale'")
         for f in n.get("fuentes", []):
             verificar_fuente(f, raiz, donde, inf)
     for i, a in enumerate(nodos):
@@ -149,10 +170,10 @@ def validar_diagrama(diag, raiz, inf):
             if any(cruzan(s, t) for s in tramos(pts) for t in tramos(rutas[j])):
                 inf.error(f"{did}/{nombre(i)}", "crossing", f"crosses or overlaps {nombre(j)}",
                           "keep 'mid' values at least 12px apart or reorder the sides")
-    zonas = [(z["x"] + z.get("rotulo_x", 12), z["y"] - 6, round(len(z["rotulo"]) * 5.6 + 12), 12)
+    zonas = [(z["x"] + z.get("rotulo_x", 12), z["y"] - 6 * esc, round((len(z["rotulo"]) * 5.6 + 12) * esc), 12 * esc)
              for z in diag["zonas"]]
     for z in diag["zonas"]:
-        if z["x"] < 0 or z["y"] < 8 or z["x"] + z["w"] > W or z["y"] + z["h"] > H - 60:
+        if z["x"] < 0 or z["y"] < 8 or z["x"] + z["w"] > W or z["y"] + z["h"] > H - alto_leyenda(diag):
             inf.error(f"{did}/zone", "zone-off-canvas", f"zone '{z['rotulo']}' leaves the canvas or covers the legend strip",
                       "shrink the zone or enlarge 'size' (the legend takes the last 60px)")
     for z, zr in zip(diag["zonas"], zonas):
@@ -192,8 +213,14 @@ def validar_documento(doc, base):
     vistos = set()
     for s in doc.get("secciones", []):
         for v in s.get("vistas", []):
+            if not isinstance(v.get("diagrama"), dict):
+                inf.error(s.get("id", "?"), "missing-diagram", "a view has no 'diagram' object",
+                          "every entry in 'views' needs a 'diagram'")
+                continue
             d = normalizar(v["diagrama"])
             d["_lang"] = doc.get("lang", "en")
+            d["_escala"] = float(d.get("escala_texto", doc.get("escala_texto", 1.0)))
+            d["_imp"] = d.get("impresion", doc.get("impresion"))
             if d.get("id") in vistos:
                 inf.error(d.get("id", "?"), "duplicate-diagram-id", "duplicate diagram id", "ids are unique per document")
             vistos.add(d.get("id"))
