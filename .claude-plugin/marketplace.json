@@ -1,0 +1,15 @@
+{
+  "name": "trazo",
+  "metadata": {
+    "description": "Diagrams as data, with validation and an interactive viewer."
+  },
+  "owner": {
+    "name": "totokerby"
+  },
+  "plugins": [
+    {
+      "name": "trazo",
+      "source": "./"
+    }
+  ]
+}

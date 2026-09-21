@@ -1,0 +1,526 @@
+{
+ "trazo": 1,
+ "lang": "en",
+ "repository": "..",
+ "eyebrow": "Trazo - example",
+ "title": "How Trazo turns a spec into a page",
+ "intro": "Three views of Trazo drawn with Trazo. Hover a node to see who it talks to; click it for its detail and the lines of code it is bound to. Every source below is checked at build time: rename one of those functions and this page stops building.",
+ "footer": "Built from examples/pipeline.trazo.json.",
+ "sections": [
+  {
+   "id": "pipeline",
+   "eyebrow": "Part 1",
+   "title": "The build pipeline",
+   "nav": "1. Pipeline",
+   "lead": "A spec goes through normalization and validation before anything is rendered. A failing spec writes nothing.",
+   "views": [
+    {
+     "diagram": {
+      "id": "pipeline",
+      "type": "flow",
+      "title": "The build pipeline",
+      "description": "A JSON spec is normalized, validated, rendered to SVG and wrapped into a self-contained HTML page; a failed validation stops the build.",
+      "size": [
+       1000,
+       440
+      ],
+      "nodes": [
+       {
+        "id": "spec",
+        "x": 20,
+        "y": 80,
+        "kind": "state",
+        "tag": "INPUT",
+        "name": "doc.trazo.json",
+        "sub": [
+         "typed JSON",
+         "en or es keys"
+        ],
+        "detail": "The only thing you write. Positions are explicit: there is no automatic layout, on purpose."
+       },
+       {
+        "id": "normalize",
+        "x": 220,
+        "y": 80,
+        "kind": "process",
+        "tag": "SCHEMA",
+        "name": "Normalize",
+        "sub": [
+         "aliases, defaults"
+        ],
+        "detail": "English and Spanish keys map to one internal model, and missing sizes get defaults.",
+        "sources": [
+         {
+          "path": "skills/trazo/lib/esquema.py",
+          "contains": "def normalize"
+         }
+        ]
+       },
+       {
+        "id": "validate",
+        "x": 420,
+        "y": 80,
+        "kind": "gate",
+        "tag": "GATE",
+        "name": "Validate",
+        "sub": [
+         "geometry, budget",
+         "sources vs repo"
+        ],
+        "detail": "Blocks crossings, lines behind nodes, covered labels, over-budget diagrams and stale sources. Each error comes with a suggested fix.",
+        "sources": [
+         {
+          "path": "skills/trazo/lib/validar.py",
+          "contains": "def validar_documento"
+         }
+        ]
+       },
+       {
+        "id": "render",
+        "x": 620,
+        "y": 80,
+        "kind": "process",
+        "tag": "RENDER",
+        "name": "SVG",
+        "sub": [
+         "orthogonal routes",
+         "CSS tokens"
+        ],
+        "detail": "Routes are orthogonal with quarter-arc corners; colors come from CSS tokens, so the theme can change without redrawing.",
+        "sources": [
+         {
+          "path": "skills/trazo/lib/svg.py",
+          "contains": "def svg("
+         }
+        ]
+       },
+       {
+        "id": "page",
+        "x": 820,
+        "y": 80,
+        "kind": "focus",
+        "tag": "OUTPUT",
+        "name": "HTML page",
+        "sub": [
+         "viewer + fonts",
+         "works offline"
+        ],
+        "detail": "One file: CSS, JS, SVG and the typeface are inline. Written atomically, so a failed build never leaves a half-written page.",
+        "sources": [
+         {
+          "path": "skills/trazo/lib/pagina.py",
+          "contains": "def construir"
+         }
+        ]
+       },
+       {
+        "id": "errors",
+        "x": 420,
+        "y": 260,
+        "kind": "pending",
+        "tag": "ON FAILURE",
+        "name": "Errors + fixes",
+        "sub": [
+         "nothing is written"
+        ],
+        "detail": "The previous output stays intact. The command exits with status 1."
+       },
+       {
+        "id": "receipt",
+        "x": 820,
+        "y": 260,
+        "kind": "state",
+        "tag": "RECEIPT",
+        "name": "sha256",
+        "sub": [
+         "spec and html"
+        ],
+        "detail": "The build prints the hash and size of both the spec and the page, so a delivered file can be traced to its spec.",
+        "sources": [
+         {
+          "path": "skills/trazo/trazo.py",
+          "contains": "def cmd_build"
+         }
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "spec",
+        "from_side": "right",
+        "to": "normalize",
+        "to_side": "left"
+       },
+       {
+        "from": "normalize",
+        "from_side": "right",
+        "to": "validate",
+        "to_side": "left"
+       },
+       {
+        "from": "validate",
+        "from_side": "right",
+        "to": "render",
+        "to_side": "left",
+        "label": "OK",
+        "style": "main"
+       },
+       {
+        "from": "render",
+        "from_side": "right",
+        "to": "page",
+        "to_side": "left"
+       },
+       {
+        "from": "validate",
+        "from_side": "bottom",
+        "to": "errors",
+        "to_side": "top",
+        "label": "FAILS",
+        "style": "pending"
+       },
+       {
+        "from": "page",
+        "from_side": "bottom",
+        "to": "receipt",
+        "to_side": "top",
+        "label": "RECORDS"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "viewer",
+   "eyebrow": "Part 2",
+   "title": "Inside the page",
+   "nav": "2. Viewer",
+   "lead": "The page is readable without JavaScript. The viewer adds highlighting, detail, search, theme, zoom and export on top.",
+   "views": [
+    {
+     "diagram": {
+      "id": "viewer",
+      "type": "architecture",
+      "title": "Inside the page",
+      "description": "The reader interacts with the SVG, the viewer script reacts using embedded data, and can export the diagram as a standalone SVG file.",
+      "size": [
+       1000,
+       560
+      ],
+      "zones": [
+       {
+        "x": 276,
+        "y": 160,
+        "w": 468,
+        "h": 300,
+        "label": "ONE HTML FILE"
+       }
+      ],
+      "nodes": [
+       {
+        "id": "reader",
+        "x": 40,
+        "y": 200,
+        "kind": "person",
+        "tag": "READER",
+        "name": "Reader",
+        "sub": [
+         "hover, click",
+         "search, zoom"
+        ],
+        "detail": "Everything is keyboard reachable: Tab to a node, Enter for the detail, Escape to close."
+       },
+       {
+        "id": "svg",
+        "x": 300,
+        "y": 200,
+        "kind": "process",
+        "tag": "SVG",
+        "name": "Diagram",
+        "sub": [
+         "nodes: data-id",
+         "edges: from/to"
+        ],
+        "detail": "Static and complete on its own. Nodes and edges carry the identifiers the viewer needs."
+       },
+       {
+        "id": "viewer",
+        "x": 560,
+        "y": 200,
+        "kind": "focus",
+        "tag": "JS",
+        "name": "Viewer",
+        "sub": [
+         "highlight, tooltip",
+         "detail panel"
+        ],
+        "detail": "On hover it lights up a node's relations and dims the rest; on click it opens the detail panel with neighbors and sources.",
+        "sources": [
+         {
+          "path": "skills/trazo/lib/visor.js",
+          "contains": "function iluminar"
+         }
+        ]
+       },
+       {
+        "id": "data",
+        "x": 560,
+        "y": 360,
+        "kind": "state",
+        "tag": "JSON",
+        "name": "Embedded data",
+        "sub": [
+         "detail, relations",
+         "UI strings en/es"
+        ],
+        "detail": "Per-diagram node data and relations, plus the interface strings for the document language."
+       },
+       {
+        "id": "fonts",
+        "x": 300,
+        "y": 360,
+        "kind": "state",
+        "tag": "CSS",
+        "name": "Typeface",
+        "sub": [
+         "Latin Modern Mono",
+         "base64, offline"
+        ],
+        "detail": "LaTeX's typewriter face, embedded so the page looks the same on every machine and without a network."
+       },
+       {
+        "id": "export",
+        "x": 820,
+        "y": 200,
+        "kind": "external",
+        "tag": "FILE",
+        "name": "SVG export",
+        "sub": [
+         "tokens resolved",
+         "fonts embedded"
+        ],
+        "detail": "A standalone .svg with the current theme's colors resolved and the typeface included."
+       }
+      ],
+      "edges": [
+       {
+        "from": "reader",
+        "from_side": "right",
+        "to": "svg",
+        "to_side": "left",
+        "label": "HOVERS"
+       },
+       {
+        "from": "svg",
+        "from_side": "right",
+        "to": "viewer",
+        "to_side": "left",
+        "label": "EVENTS"
+       },
+       {
+        "from": "viewer",
+        "from_side": "bottom",
+        "to": "data",
+        "to_side": "top",
+        "label": "READS"
+       },
+       {
+        "from": "fonts",
+        "from_side": "top",
+        "to": "svg",
+        "to_side": "bottom",
+        "label": "TYPESETS"
+       },
+       {
+        "from": "viewer",
+        "from_side": "right",
+        "to": "export",
+        "to_side": "left",
+        "label": "WRITES"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "stale",
+   "eyebrow": "Part 3",
+   "title": "A diagram that cannot go stale",
+   "nav": "3. Sources",
+   "lead": "A section can hold two views side by side, such as today and the target state, with cards underneath.",
+   "views": [
+    {
+     "label": "Today",
+     "diagram": {
+      "id": "stale-today",
+      "type": "flow",
+      "title": "A hand-drawn diagram",
+      "description": "Code changes every day, the hand-drawn diagram is updated only sometimes, and the team keeps trusting it.",
+      "size": [
+       1000,
+       300
+      ],
+      "nodes": [
+       {
+        "id": "code",
+        "x": 40,
+        "y": 80,
+        "kind": "process",
+        "tag": "REPO",
+        "name": "Code",
+        "sub": [
+         "changes every day"
+        ]
+       },
+       {
+        "id": "drawing",
+        "x": 420,
+        "y": 80,
+        "kind": "pending",
+        "tag": "STATIC",
+        "name": "Hand-drawn diagram",
+        "sub": [
+         "updated by memory"
+        ],
+        "w": 180
+       },
+       {
+        "id": "team",
+        "x": 800,
+        "y": 80,
+        "kind": "person",
+        "tag": "READERS",
+        "name": "Team",
+        "sub": [
+         "trusts the picture"
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "code",
+        "from_side": "right",
+        "to": "drawing",
+        "to_side": "left",
+        "label": "SOMETIMES",
+        "style": "pending"
+       },
+       {
+        "from": "drawing",
+        "from_side": "right",
+        "to": "team",
+        "to_side": "left",
+        "label": "SHOWN"
+       }
+      ]
+     }
+    },
+    {
+     "label": "With Trazo",
+     "diagram": {
+      "id": "stale-target",
+      "type": "flow",
+      "title": "A diagram bound to its code",
+      "description": "The spec cites lines of code, the build checks them, and the page is only produced while they still match.",
+      "size": [
+       1000,
+       300
+      ],
+      "nodes": [
+       {
+        "id": "code",
+        "x": 40,
+        "y": 80,
+        "kind": "process",
+        "tag": "REPO",
+        "name": "Code",
+        "sub": [
+         "changes every day"
+        ]
+       },
+       {
+        "id": "spec",
+        "x": 300,
+        "y": 80,
+        "kind": "state",
+        "tag": "SPEC",
+        "name": "doc.trazo.json",
+        "sub": [
+         "path + line",
+         "+ contains"
+        ]
+       },
+       {
+        "id": "check",
+        "x": 560,
+        "y": 80,
+        "kind": "gate",
+        "tag": "BUILD",
+        "name": "Validate",
+        "sub": [
+         "stale line = error"
+        ]
+       },
+       {
+        "id": "page",
+        "x": 800,
+        "y": 80,
+        "kind": "focus",
+        "tag": "OUTPUT",
+        "name": "HTML page",
+        "sub": [
+         "matches the code"
+        ]
+       }
+      ],
+      "edges": [
+       {
+        "from": "code",
+        "from_side": "right",
+        "to": "spec",
+        "to_side": "left",
+        "label": "CITED"
+       },
+       {
+        "from": "spec",
+        "from_side": "right",
+        "to": "check",
+        "to_side": "left",
+        "label": "CHECKED"
+       },
+       {
+        "from": "check",
+        "from_side": "right",
+        "to": "page",
+        "to_side": "left",
+        "label": "BUILDS",
+        "style": "main"
+       }
+      ]
+     }
+    }
+   ],
+   "cards": [
+    {
+     "eyebrow": "Today",
+     "title": "The drawing drifts",
+     "items": [
+      "Nobody knows which boxes are still true.",
+      "Reviews compare the picture with memory, not with code."
+     ]
+    },
+    {
+     "eyebrow": "With Trazo",
+     "title": "The build refuses",
+     "accent": true,
+     "items": [
+      "A renamed function makes validation fail with the exact line.",
+      "Fixing the diagram is part of the change, not a chore for later."
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "trazo",
+  "description": "Diagrams as data: a typed JSON spec, validation that blocks crossings, covered labels and stale code references, and a self-contained HTML page with a minimal editorial style and an interactive viewer (per-node detail, relations on hover, search, light/dark, zoom, SVG export).",
+  "version": "1.0.0",
+  "author": {
+    "name": "totokerby",
+    "url": "https://github.com/totokerby"
+  },
+  "homepage": "https://github.com/totokerby/trazo",
+  "repository": "https://github.com/totokerby/trazo",
+  "license": "MIT",
+  "keywords": ["diagrams", "svg", "architecture", "flowchart", "org-chart", "documentation", "validation", "editorial"]
+}
