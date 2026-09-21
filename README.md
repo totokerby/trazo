@@ -4,6 +4,8 @@
 with a minimal editorial style and an interactive viewer. It ships as an agent skill (Claude Code plugin)
 and as a plain Python command with no dependencies.
 
+![The build pipeline, exported from Trazo as SVG](docs/pipeline.svg)
+
 - **Validation that fails before you ship.** Crossings, lines passing behind unrelated nodes, labels covering
   nodes or lines, overlapping nodes, over-budget diagrams and legend overflow are errors, each with a
   suggested fix. A failed build writes nothing.
@@ -17,7 +19,9 @@ and as a plain Python command with no dependencies.
   face) are inline. Without JavaScript the diagrams still render completely.
 
 Open `examples/pipeline.html` in a browser to see it: Trazo's own pipeline, drawn with Trazo and bound to
-its own source code.
+its own source code. The images in this README are its diagrams exported with `trazo.py export`.
+
+![Inside the page: reader, diagram, viewer, embedded data and export](docs/viewer.svg)
 
 ## Install
 
@@ -43,6 +47,7 @@ python3 trazo/skills/trazo/trazo.py test
 ```bash
 python3 skills/trazo/trazo.py validate examples/pipeline.trazo.json
 python3 skills/trazo/trazo.py build    examples/pipeline.trazo.json out.html
+python3 skills/trazo/trazo.py export   examples/pipeline.trazo.json pipeline pipeline.svg   # standalone SVG
 python3 skills/trazo/trazo.py capture  out.html shots/        # PNGs, light and dark (needs Chrome/Chromium)
 python3 skills/trazo/trazo.py test                            # sources self-test
 ```

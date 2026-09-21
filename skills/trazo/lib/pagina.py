@@ -37,6 +37,23 @@ TEXTOS = {
 }
 
 
+def tokens(css, tema):
+    """CSS custom properties of the light (:root) or dark ([data-theme="dark"]) block."""
+    marca = ":root {" if tema == "light" else ':root[data-theme="dark"] {'
+    bloque = css[css.index(marca) + len(marca):]
+    bloque = bloque[:bloque.index("}")]
+    return ";".join(d.strip() for d in bloque.split(";") if d.strip().startswith("--"))
+
+
+def exportar_svg(diag, tema="light"):
+    """Standalone SVG: same markup as the page, with theme tokens resolved and fonts embedded."""
+    css = (AQUI / "visor.css").read_text(encoding="utf-8")
+    css_svg = css[css.index("/* SVG"):css.index("/* interaction")]
+    estilo = f"<style>svg{{{tokens(css, tema)}}}{fuentes()}{css_svg}</style>"
+    marcado = svg(diag, diag["id"])
+    return marcado.replace("<defs>", estilo + "<defs>", 1)
+
+
 def e(s):
     return html.escape(str(s), quote=True)
 

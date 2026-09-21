@@ -4,9 +4,10 @@
   trazo.py validate <doc.trazo.json> [--json]
   trazo.py build    <doc.trazo.json> <out.html> [--json]
   trazo.py capture  <out.html> <dir> [--theme light|dark|both]
+  trazo.py export   <doc.trazo.json> <diagram-id> <out.svg> [--theme light|dark]
   trazo.py test
 
-Spanish aliases: validar, construir, captura, prueba.
+Spanish aliases: validar, construir, captura, exportar, prueba.
 """
 import hashlib
 import json
@@ -21,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from esquema import normalize  # noqa: E402
 from validar import validar_documento  # noqa: E402
-from pagina import construir  # noqa: E402
+from pagina import construir, exportar_svg  # noqa: E402
 
 VERSION = "1.0.0"
 
@@ -72,6 +73,25 @@ def cmd_build(args):
     print(json.dumps(receipt, indent=2) if "--json" in args else
           f"OK {out}  ({receipt['diagrams']} diagrams, {receipt['html_bytes']} bytes, "
           f"{receipt['warnings']} warnings)\n   spec {h_spec}\n   html {receipt['html_sha256']}")
+    return 0
+
+
+def cmd_export(args):
+    doc, _, base = load(args[0])
+    inf = validar_documento(doc, base)
+    if inf.errores:
+        report(inf, False)
+        print("not exported: validation has errors")
+        return 1
+    theme = args[args.index("--theme") + 1] if "--theme" in args else "light"
+    diags = {v["diagrama"]["id"]: v["diagrama"] for s in doc["secciones"] for v in s["vistas"]}
+    if args[1] not in diags:
+        print(f"no diagram '{args[1]}'; available: {', '.join(diags)}")
+        return 1
+    out = Path(args[2])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(exportar_svg(diags[args[1]], theme), encoding="utf-8")
+    print(f"OK {out}  ({args[1]}, {theme}, {out.stat().st_size} bytes)")
     return 0
 
 
@@ -133,8 +153,9 @@ def cmd_test(_):
     return 0 if ok1 and ok2 and ok3 else 1
 
 
-COMMANDS = {"validate": cmd_validate, "build": cmd_build, "capture": cmd_capture, "test": cmd_test,
-            "validar": cmd_validate, "construir": cmd_build, "captura": cmd_capture, "prueba": cmd_test}
+COMMANDS = {"validate": cmd_validate, "build": cmd_build, "capture": cmd_capture, "export": cmd_export,
+            "test": cmd_test, "validar": cmd_validate, "construir": cmd_build, "captura": cmd_capture,
+            "exportar": cmd_export, "prueba": cmd_test}
 
 
 def main():

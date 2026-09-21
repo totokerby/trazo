@@ -11,6 +11,7 @@ A diagram is data: a JSON spec that is validated and built. Never hand-write the
 ```bash
 python3 <skill-dir>/trazo.py validate <doc.trazo.json>          # errors with a suggested fix
 python3 <skill-dir>/trazo.py build    <doc.trazo.json> <out.html> # only if it validates; prints a sha256 receipt
+python3 <skill-dir>/trazo.py export   <doc.trazo.json> <id> <out.svg> [--theme dark]  # standalone SVG, fonts embedded
 python3 <skill-dir>/trazo.py capture  <out.html> <dir>            # one PNG per diagram, light and dark
 python3 <skill-dir>/trazo.py test                                 # sources self-test
 ```
